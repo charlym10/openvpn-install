@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1091,SC2164,SC2034,SC1072,SC1073,SC1009
 
 # Secure OpenVPN server installer for Debian, Ubuntu, CentOS, Amazon Linux 2, Fedora and Arch Linux
 # https://github.com/angristan/openvpn-install
@@ -219,6 +220,7 @@ function installQuestions() {
 
 	# Detect public IPv4 address and pre-fill for the user
 	IP=$(ip -4 addr | sed -ne 's|^.* inet \([^/]*\)/.* scope global.*$|\1|p' | head -1)
+
 	if [[ -z $IP ]]; then
 		# Detect public IPv6 address
 		IP=$(ip -6 addr | sed -ne 's|^.* inet6 \([^/]*\)/.* scope global.*$|\1|p' | head -1)
@@ -232,8 +234,10 @@ function installQuestions() {
 		echo ""
 		echo "It seems this server is behind NAT. What is its public IPv4 address or hostname?"
 		echo "We need it for the clients to connect to the server."
+
+		PUBLICIP=$(curl -s https://api.ipify.org)
 		until [[ $ENDPOINT != "" ]]; do
-			read -rp "Public IPv4 address or hostname: " -e ENDPOINT
+			read -rp "Public IPv4 address or hostname: " -e -i "$PUBLICIP" ENDPOINT
 		done
 	fi
 
@@ -823,8 +827,8 @@ ifconfig-pool-persist ipp.txt" >>/etc/openvpn/server.conf
 		echo 'push "dhcp-option DNS 77.88.8.1"' >>/etc/openvpn/server.conf
 		;;
 	11) # AdGuard DNS
-		echo 'push "dhcp-option DNS 176.103.130.130"' >>/etc/openvpn/server.conf
-		echo 'push "dhcp-option DNS 176.103.130.131"' >>/etc/openvpn/server.conf
+		echo 'push "dhcp-option DNS 94.140.14.14"' >>/etc/openvpn/server.conf
+		echo 'push "dhcp-option DNS 94.140.15.15"' >>/etc/openvpn/server.conf
 		;;
 	12) # NextDNS
 		echo 'push "dhcp-option DNS 45.90.28.167"' >>/etc/openvpn/server.conf
@@ -861,7 +865,7 @@ push "redirect-gateway ipv6"' >>/etc/openvpn/server.conf
 
 	case $TLS_SIG in
 	1)
-		echo "tls-crypt tls-crypt.key 0" >>/etc/openvpn/server.conf
+		echo "tls-crypt tls-crypt.key" >>/etc/openvpn/server.conf
 		;;
 	2)
 		echo "tls-auth tls-auth.key 0" >>/etc/openvpn/server.conf
@@ -888,9 +892,9 @@ verb 3" >>/etc/openvpn/server.conf
 	mkdir -p /var/log/openvpn
 
 	# Enable routing
-	echo 'net.ipv4.ip_forward=1' >/etc/sysctl.d/20-openvpn.conf
+	echo 'net.ipv4.ip_forward=1' >/etc/sysctl.d/99-openvpn.conf
 	if [[ $IPV6_SUPPORT == 'y' ]]; then
-		echo 'net.ipv6.conf.all.forwarding=1' >>/etc/sysctl.d/20-openvpn.conf
+		echo 'net.ipv6.conf.all.forwarding=1' >>/etc/sysctl.d/99-openvpn.conf
 	fi
 	# Apply sysctl rules
 	sysctl --system
@@ -1263,7 +1267,7 @@ function removeOpenVPN() {
 		find /root/ -maxdepth 1 -name "*.ovpn" -delete
 		rm -rf /etc/openvpn
 		rm -rf /usr/share/doc/openvpn*
-		rm -f /etc/sysctl.d/20-openvpn.conf
+		rm -f /etc/sysctl.d/99-openvpn.conf
 		rm -rf /var/log/openvpn
 
 		# Unbound
